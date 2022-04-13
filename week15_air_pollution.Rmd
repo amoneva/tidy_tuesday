@@ -1,0 +1,199 @@
+---
+title: "TidyTuesday"
+subtitle: "Week 15"
+author: "Asier Moneva"
+date: "19/4/2022"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages}
+library(tidyverse)
+```
+
+We import the .csv data from the TidyTuesday GitHub repository.
+
+```{r import-data}
+df <- read_csv(file = "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2022/2022-04-12/indoor_pollution.csv")
+```
+
+Now let´s take a look at the dataset.
+
+```{r explore}
+# Explore the dataset
+glimpse(df)
+```
+
+The name of the fourth variable is inconvenient because is too long and contains spaces. In generla, ce can make variable names more convenient by using simple lowercase names.
+
+```{r rename-vars}
+# Rename all variables with lowercase characters
+df_renamed <- df |> 
+  rename(Deaths = "Deaths - Cause: All causes - Risk: Household air pollution from solid fuels - Sex: Both - Age: Age-standardized (Percent)") |> 
+  rename_with(.fn = str_to_lower)
+
+# Explore the dataset again
+glimpse(df_renamed)
+```
+
+To put the percentage of deaths in the Netherlands in context, we can compare it with that of other countries in the European Union (EU). To do this, we can start by filtering the dataset by the 27 EU countries.
+
+```{r filter}
+# List EU countries
+eu_countries <- c("Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus", "Czechia", "Denmark", "Estonia", "Finland", "France", "Germany", "Greece", "Hungary", "Ireland", "Italy", "Latvia", "Lithuania", "Luxembourg", "Malta", "Netherlands", "Poland", "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden")
+
+# Filter by EU countries
+df_renamed_eu <- df_renamed |> 
+  filter(entity %in% eu_countries)
+
+# Explore the dataset once again
+glimpse(df_renamed_eu)
+```
+
+We can start with a simple line plot to get an overview of the trends by country. We observe a generalized decrease in deaths in all countries, but many trends overlap, which makes it difficult to interpret the data.
+
+```{r line-plot-1}
+# Create a simple line plot colouring lines by country
+df_renamed_eu |> 
+  ggplot(mapping = aes(
+    x = year,
+    y = deaths,
+    color = entity
+  )) +
+  geom_line()
+```
+
+To examine individual trends we can use facetting. This technique assigns each individual trend its own label, rendering the legend redundant. Good news is: we can easily remove it.
+
+```{r line-plot-2}
+df_renamed_eu |> 
+  ggplot(mapping = aes(
+    x = year,
+    y = deaths,
+    color = entity
+  )) +
+  geom_line() +
+  # Create a matrix of individual plots
+  facet_wrap(facets = ~ entity) +
+  # Remove the redundant legend
+  theme(legend.position = "none")
+```
+
+It appears that trends in some countries, such as Austria or Belgium, experience virtually zero variability. However, when we inspect such trends closely we note that variability does exist, albeit on a very small scale compared to other countries such as Bulgaria or Romania.
+
+```{r inspect-trends}
+# Inspect seemingly invariable trends
+df_renamed_eu |> 
+  filter(entity == "Austria" | entity == "Belgium")
+```
+
+To better understand variation in these trends we can "free" the y-axis from the individual plots. In this way we put the focus on individual rather than comparative analyses. We now realize that the apparent low variability of some trends was a consequence of subjecting all countries to the same axis limits. Now we observe that the relative trends look similar in all EU countries.
+
+```{r line-plot-3}
+df_renamed_eu |> 
+  ggplot(mapping = aes(
+    x = year,
+    y = deaths,
+    color = entity
+  )) +
+  geom_line() +
+  facet_wrap(
+    vars(entity),
+    # Free the y axes to make them relative
+    scales = "free_y"
+  ) +
+  theme(legend.position = "none")
+```
+
+To compare relative declines between countries, we can calculate the percentage reduction in deaths.
+
+```{r line-plot-4}
+# Calculate percentage reduction of deaths by country
+df_renamed_eu_19 <- df_renamed_eu |> 
+  group_by(entity) |> 
+  mutate(p_decrease = 100 * ((min(deaths) - max(deaths)) / abs(max(deaths)))) |> 
+  filter(year == 2019)
+
+# Create a plot that combines lines, points, and text
+df_renamed_eu |> 
+  ggplot(mapping = aes(
+    x = year,
+    y = deaths,
+    color = entity
+  )) +
+  geom_line() +
+  # Add a point at the end of the line
+  geom_point(
+    data = df_renamed_eu_19,
+    mapping = aes(y = deaths)
+  ) +
+  # Add a tag with the percentage reduction
+  geom_text(
+    data = df_renamed_eu_19,
+    mapping = aes(
+      y = deaths,
+      label = paste0(round(p_decrease), "%")
+    ),
+    vjust = - 2,
+    hjust = 1
+  ) +
+  facet_wrap(
+    vars(entity),
+    scales = "free_y"
+  ) +
+  theme(legend.position = "none")
+```
+
+Finally, we can add some labels to better communicate the contents of the plot.
+
+```{r line-plot-5}
+figure <- df_renamed_eu |> 
+  ggplot(mapping = aes(
+    x = year,
+    y = deaths,
+    color = entity
+  )) +
+  geom_line() +
+  geom_point(
+    data = df_renamed_eu_19,
+    mapping = aes(y = deaths)
+  ) +
+  geom_text(
+    data = df_renamed_eu_19,
+    mapping = aes(
+      y = deaths,
+      label = paste0(round(p_decrease), "%")
+    ),
+    vjust = - 2,
+    hjust = 1
+  ) +
+  # Add some text and labels to the plot
+  labs(
+    title = "How have trends in deaths due to household air pollution from solid fuels evolved\nin the EU countries over the last 30 years?",
+    subtitle = "Fortunately, all countries have witnessed sharp declines ranging from 62 to 95%.",
+    x = NULL,
+    y = "deaths\n(%)",
+    caption = "By: Asier Moneva (@crimoneva)\nSource: Our World in Data\n<https://ourworldindata.org/indoor-air-pollution>"
+  ) +
+  facet_wrap(
+    vars(entity),
+    scales = "free_y"
+  ) +
+  theme(
+    legend.position = "none",
+    # Adjust the position of the y-axis
+    axis.title.y = element_text(
+      angle = 0,
+      vjust = .5
+    )
+  )
+print(figure)
+```
+
+```{r session, eval = FALSE}
+sessionInfo()
+```
+
