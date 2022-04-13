@@ -172,11 +172,11 @@ figure <- df_renamed_eu |>
   ) +
   # Add some text and labels to the plot
   labs(
-    title = "How have trends in deaths due to household air pollution from solid fuels evolved\nin the EU countries over the last 30 years?",
-    subtitle = "Fortunately, all countries have witnessed sharp declines ranging from 62 to 95%.",
+    title = "How has proportion of deaths due to household air pollution from solid fuels evolved\nin the EU countries over the last 30 years?",
+    subtitle = "In all countries there has been a sharp decline ranging from 62 to 95%.",
     x = NULL,
     y = "deaths\n(%)",
-    caption = "By: Asier Moneva (@crimoneva)\nSource: Our World in Data\n<https://ourworldindata.org/indoor-air-pollution>"
+    caption = "By: Asier Moneva (@crimoneva)\nSource: Our World in Data <https://ourworldindata.org/indoor-air-pollution>"
   ) +
   facet_wrap(
     vars(entity),
